@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QUERY/PREP — SQL Interview Trainer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F7F6F2; --panel:#FFFFFF; --ink:#16213A; --muted:#5C6478; --line:#E3E1D8;
+  --kw:#6D4ACF; --kw-soft:#EFEAFB; --str:#C2541B; --str-soft:#FBEEE4;
+  --fn:#0E7C66; --fn-soft:#E3F3EE; --err:#C03434; --err-soft:#FBE9E9;
+  --editor:#14182B; --editor-ink:#E8EAF6; --radius:10px;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --disp:'Space Grotesk',system-ui,sans-serif;
+  --body:'Inter',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--body);background:var(--paper);color:var(--ink);font-size:15px;line-height:1.55}
+button{font-family:inherit;cursor:pointer}
+.app{display:flex;min-height:100vh}
+
+/* ---------- sidebar ---------- */
+.side{width:228px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh;overflow-y:auto}
+.brand{font-family:var(--mono);font-weight:600;font-size:15px;letter-spacing:.02em;padding:4px 10px 14px;border-bottom:1px solid var(--line);margin-bottom:10px}
+.brand .kw{color:var(--kw)}
+.brand .slash{color:var(--str)}
+.navlbl{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);padding:12px 10px 4px}
+.nav-btn{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:none;border-radius:8px;padding:8px 10px;font-size:14px;font-weight:500;color:var(--ink);font-family:var(--disp)}
+.nav-btn:hover{background:var(--paper)}
+.nav-btn.active{background:var(--kw-soft);color:var(--kw)}
+.nav-btn .ico{font-family:var(--mono);font-size:12px;width:18px;color:var(--muted)}
+.nav-btn.active .ico{color:var(--kw)}
+.side-foot{margin-top:auto;padding:12px 10px 4px;font-size:12px;color:var(--muted);border-top:1px solid var(--line)}
+.menu-toggle{display:none}
+
+/* ---------- main ---------- */
+.main{flex:1;min-width:0;padding:34px 44px 80px;max-width:1060px}
+.qhead{font-family:var(--mono);font-size:21px;font-weight:600;margin-bottom:6px;word-break:break-word}
+.qhead .kw{color:var(--kw)} .qhead .str{color:var(--str)} .qhead .fn{color:var(--fn)} .qhead .cm{color:var(--muted)}
+.sub{color:var(--muted);margin-bottom:26px;max-width:640px}
+section.view{display:none}
+section.view.on{display:block;animation:fade .18s ease}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- shared bits ---------- */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px}
+.grid{display:grid;gap:14px}
+.grid.c2{grid-template-columns:1fr 1fr}
+.pill{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 9px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+.pill.easy{background:var(--fn-soft);color:var(--fn);border-color:transparent}
+.pill.medium{background:var(--str-soft);color:var(--str);border-color:transparent}
+.pill.hard{background:var(--err-soft);color:var(--err);border-color:transparent}
+.pill.lvl{background:var(--kw-soft);color:var(--kw);border-color:transparent}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:8px 16px;font-size:13.5px;font-weight:600;font-family:var(--disp);color:var(--ink)}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--kw);border-color:var(--kw);color:#fff}
+.btn.primary:hover{background:#5b3bb5}
+.btn.ghost{border:none;background:none;color:var(--kw);padding:8px 6px}
+.btn:focus-visible,.nav-btn:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--kw);outline-offset:2px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+/* ---------- code & editor ---------- */
+pre.code{background:var(--editor);color:var(--editor-ink);font-family:var(--mono);font-size:13px;line-height:1.6;border-radius:8px;padding:14px 16px;overflow-x:auto;margin:10px 0}
+pre.code .kw{color:#A78BFA}pre.code .str{color:#F4A261}pre.code .fn{color:#5BC8AF}pre.code .num{color:#7FB5FF}pre.code .cm{color:#7A82A6;font-style:italic}
+textarea.editor{width:100%;background:var(--editor);color:var(--editor-ink);font-family:var(--mono);font-size:13.5px;line-height:1.6;border:none;border-radius:8px;padding:14px 16px;min-height:130px;resize:vertical;caret-color:#A78BFA}
+.resultwrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;margin-top:12px}
+table.rt{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:12.5px;background:var(--panel)}
+table.rt th{background:var(--paper);text-align:left;padding:7px 12px;border-bottom:1px solid var(--line);font-weight:600;color:var(--kw);white-space:nowrap}
+table.rt td{padding:6px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.rt tr:last-child td{border-bottom:none}
+table.rt td.null{color:var(--muted);font-style:italic}
+.msg{font-family:var(--mono);font-size:12.5px;border-radius:8px;padding:10px 14px;margin-top:12px}
+.msg.err{background:var(--err-soft);color:var(--err)}
+.msg.ok{background:var(--fn-soft);color:var(--fn)}
+.msg.info{background:var(--kw-soft);color:var(--kw)}
+
+/* ---------- roadmap ---------- */
+.lvlblock{margin-bottom:26px}
+.lvlhead{font-family:var(--mono);font-size:13px;font-weight:600;margin-bottom:10px;color:var(--ink)}
+.lvlhead .cm{color:var(--muted);font-weight:400}
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:10px}
+.ccard{text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:13px 15px;display:flex;flex-direction:column;gap:5px;transition:border-color .12s}
+.ccard:hover{border-color:var(--kw)}
+.ccard b{font-family:var(--disp);font-size:14.5px;font-weight:600}
+.ccard small{color:var(--muted);font-size:12.5px;line-height:1.45}
+.ccard .done{font-family:var(--mono);font-size:11px;color:var(--fn)}
+
+/* ---------- concept page ---------- */
+.concept h3{font-family:var(--disp);font-size:15px;margin:20px 0 6px}
+.concept h3:before{content:'-- ';font-family:var(--mono);color:var(--muted);font-weight:400}
+.mistake{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+@media(max-width:760px){.mistake{grid-template-columns:1fr}}
+.mistake .lbl{font-family:var(--mono);font-size:11px;margin-bottom:4px}
+.mistake .bad .lbl{color:var(--err)} .mistake .good .lbl{color:var(--fn)}
+
+/* ---------- playground ---------- */
+.pgwrap{display:grid;grid-template-columns:1fr 230px;gap:16px;align-items:start}
+@media(max-width:900px){.pgwrap{grid-template-columns:1fr}}
+.schema h4{font-family:var(--mono);font-size:12px;color:var(--kw);margin-bottom:4px}
+.schema ul{list-style:none;margin:0 0 12px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.schema li{padding:1px 0}
+.schema li b{color:var(--ink);font-weight:500}
+
+/* ---------- practice ---------- */
+.plist{display:flex;flex-direction:column;gap:10px}
+.prob{cursor:pointer}
+.prob .row{justify-content:space-between}
+.hintbox{background:var(--paper);border:1px dashed var(--line);border-radius:8px;padding:10px 14px;margin-top:8px;font-size:13.5px}
+
+/* ---------- flashcards ---------- */
+.flash{max-width:560px;margin:0 auto;perspective:1200px}
+.fcard{position:relative;height:240px;cursor:pointer;transform-style:preserve-3d;transition:transform .45s}
+.fcard.flip{transform:rotateY(180deg)}
+.fface{position:absolute;inset:0;backface-visibility:hidden;background:var(--panel);border:1px solid var(--line);border-radius:14px;display:flex;align-items:center;justify-content:center;padding:28px;text-align:center;font-size:16px}
+.fface.back{transform:rotateY(180deg);background:var(--kw-soft)}
+.fface .tag{position:absolute;top:14px;left:16px;font-family:var(--mono);font-size:11px;color:var(--muted)}
+
+/* ---------- bank ---------- */
+details.qa{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:0;margin-bottom:8px}
+details.qa summary{padding:13px 16px;font-weight:600;font-family:var(--disp);cursor:pointer;list-style:none;display:flex;gap:10px;align-items:center}
+details.qa summary::before{content:'+';font-family:var(--mono);color:var(--kw)}
+details.qa[open] summary::before{content:'−'}
+details.qa .ans{padding:0 16px 14px;color:var(--ink)}
+
+/* ---------- mock & dashboard ---------- */
+.timer{font-family:var(--mono);font-size:14px;color:var(--str);font-weight:600}
+.choice{display:block;width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin-top:8px;font-size:14px}
+.choice:hover{border-color:var(--kw)}
+.choice.sel{border-color:var(--kw);background:var(--kw-soft)}
+.choice.right{border-color:var(--fn);background:var(--fn-soft)}
+.choice.wrong{border-color:var(--err);background:var(--err-soft)}
+.bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--kw)}
+
+/* ---------- tutor ---------- */
+.chat{display:flex;flex-direction:column;gap:10px;max-height:480px;overflow-y:auto;padding:4px 2px;margin-bottom:12px}
+.bubble{max-width:82%;padding:10px 14px;border-radius:12px;font-size:14px;white-space:pre-wrap}
+.bubble.user{align-self:flex-end;background:var(--kw);color:#fff;border-bottom-right-radius:4px}
+.bubble.ai{align-self:flex-start;background:var(--panel);border:1px solid var(--line);border-bottom-left-radius:4px}
+.bubble.ai code,.bubble.ai pre{font-family:var(--mono);font-size:12.5px}
+.bubble.ai pre{background:var(--editor);color:var(--editor-ink);padding:10px 12px;border-radius:8px;overflow-x:auto;margin:6px 0}
+.chatrow{display:flex;gap:8px}
+.chatrow input{flex:1;border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:14px;font-family:var(--body);background:var(--panel);color:var(--ink)}
+
+@media(max-width:820px){
+  .app{flex-direction:column}
+  .side{position:static;width:100%;height:auto;flex-direction:row;flex-wrap:wrap;padding:12px;gap:6px}
+  .brand{border:none;margin:0;padding:6px 8px;width:100%}
+  .navlbl{display:none}
+  .side-foot{display:none}
+  .nav-btn{width:auto;padding:7px 11px;font-size:13px}
+  .main{padding:22px 16px 60px}
+  .grid.c2{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<nav class="side">
+  <div class="brand"><span class="kw">QUERY</span><span class="slash">/</span>PREP <span style="color:var(--muted)">;</span></div>
+  <div class="navlbl">study</div>
+  <button class="nav-btn active" data-view="learn"><span class="ico">▤</span>Roadmap</button>
+  <button class="nav-btn" data-view="playground"><span class="ico">▶</span>Playground</button>
+  <button class="nav-btn" data-view="practice"><span class="ico">⌗</span>Practice</button>
+  <div class="navlbl">interview</div>
+  <button class="nav-btn" data-view="bank"><span class="ico">?</span>Question bank</button>
+  <button class="nav-btn" data-view="flash"><span class="ico">⇄</span>Flashcards</button>
+  <button class="nav-btn" data-view="mock"><span class="ico">◷</span>Mock interview</button>
+  <div class="navlbl">tools</div>
+  <button class="nav-btn" data-view="dash"><span class="ico">▦</span>Dashboard</button>
+  <button class="nav-btn" data-view="tutor"><span class="ico">✦</span>AI tutor</button>
+  <div class="side-foot">Runs real SQLite in your browser. Cmd/Ctrl+Enter runs a query.</div>
+</nav>
+
+<main class="main">
+
+<!-- ============ LEARN ============ -->
+<section class="view on" id="view-learn">
+  <div class="qhead"><span class="kw">SELECT</span> * <span class="kw">FROM</span> roadmap <span class="kw">ORDER BY</span> level;</div>
+  <p class="sub">Four levels, beginner through data-engineering. Open a concept for the explanation, syntax, a runnable example, and the mistake interviewers watch for.</p>
+  <div id="roadmap"></div>
+</section>
+
+<!-- ============ CONCEPT DETAIL ============ -->
+<section class="view" id="view-concept">
+  <button class="btn ghost" onclick="show('learn')">← back to roadmap</button>
+  <div id="concept-body" class="concept"></div>
+</section>
+
+<!-- ============ PLAYGROUND ============ -->
+<section class="view" id="view-playground">
+  <div class="qhead"><span class="cm">-- playground:</span> <span class="kw">write</span> anything, <span class="kw">run</span> everything</div>
+  <p class="sub">A live SQLite database with four tables. Joins, CTEs, and window functions all work.</p>
+  <div class="pgwrap">
+    <div>
+      <textarea class="editor" id="pg-editor" spellcheck="false">SELECT name, department, salary
+FROM employees
+ORDER BY salary DESC
+LIMIT 5;</textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="btn primary" onclick="runPlayground()">Run query</button>
+        <select id="pg-samples" class="btn" onchange="loadSample()" aria-label="Load a sample query">
+          <option value="">Load a sample…</option>
+        </select>
+        <button class="btn" onclick="resetDb();flashMsg('pg-out','Database reset to original data.','ok')">Reset data</button>
+      </div>
+      <div id="pg-out"></div>
+    </div>
+    <aside class="card schema" id="schema-panel"></aside>
+  </div>
+</section>
+
+<!-- ============ PRACTICE ============ -->
+<section class="view" id="view-practice">
+  <div class="qhead"><span class="kw">SELECT</span> * <span class="kw">FROM</span> problems <span class="kw">WHERE</span> solved = <span class="str">'false'</span>;</div>
+  <p class="sub">Write the query, check it against the expected result, and unlock hints one at a time before peeking at the solution.</p>
+  <div class="row" id="prac-filters" style="margin-bottom:14px"></div>
+  <div class="plist" id="prob-list"></div>
+</section>
+
+<!-- ============ PROBLEM DETAIL ============ -->
+<section class="view" id="view-problem">
+  <button class="btn ghost" onclick="show('practice')">← all problems</button>
+  <div id="prob-body"></div>
+</section>
+
+<!-- ============ BANK ============ -->
+<section class="view" id="view-bank">
+  <div class="qhead"><span class="cm">-- the questions they actually ask</span></div>
+  <p class="sub">Concise answers you can say out loud. Grouped the way interview loops group them.</p>
+  <div id="bank-body"></div>
+</section>
+
+<!-- ============ FLASHCARDS ============ -->
+<section class="view" id="view-flash">
+  <div class="qhead"><span class="kw">FLIP</span> card <span class="kw">SET</span> known = known + 1;</div>
+  <p class="sub">Tap the card to flip. Mark it so the dashboard knows what to drill.</p>
+  <div class="flash">
+    <div class="fcard" id="fcard" onclick="this.classList.toggle('flip')" role="button" tabindex="0" aria-label="Flashcard, press to flip">
+      <div class="fface front"><span class="tag" id="f-tag"></span><div id="f-q"></div></div>
+      <div class="fface back"><span class="tag">answer</span><div id="f-a"></div></div>
+    </div>
+    <div class="row" style="justify-content:center;margin-top:16px">
+      <button class="btn" onclick="gradeFlash(false)">Still shaky</button>
+      <button class="btn primary" onclick="gradeFlash(true)">Got it</button>
+    </div>
+    <p style="text-align:center;color:var(--muted);font-size:13px;margin-top:10px" id="f-count"></p>
+  </div>
+</section>
+
+<!-- ============ MOCK ============ -->
+<section class="view" id="view-mock">
+  <div class="qhead"><span class="kw">BEGIN</span> <span class="fn">mock_interview</span>(<span class="num">15</span> <span class="cm">/* minutes */</span>);</div>
+  <p class="sub">Two rounds against the clock: concept multiple-choice, then live query writing. Scored like a real screen.</p>
+  <div id="mock-body"></div>
+</section>
+
+<!-- ============ DASHBOARD ============ -->
+<section class="view" id="view-dash">
+  <div class="qhead"><span class="kw">SELECT</span> topic, progress <span class="kw">FROM</span> you;</div>
+  <p class="sub">Saved between sessions. Weak topics float to the top of the drill list.</p>
+  <div id="dash-body"></div>
+</section>
+
+<!-- ============ TUTOR ============ -->
+<section class="view" id="view-tutor">
+  <div class="qhead"><span class="cm">-- ai tutor:</span> <span class="kw">EXPLAIN</span> anything;</div>
+  <p class="sub">Ask why a query breaks, paste an error, or request a fresh practice question. The tutor can see the playground schema and your last query.</p>
+  <div class="card">
+    <div class="chat" id="chat"></div>
+    <div class="chatrow">
+      <input id="chat-in" placeholder="e.g. Why isn't my GROUP BY working?" onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="btn primary" onclick="sendChat()">Send</button>
+    </div>
+  </div>
+</section>
+
+</main>
+</div>
+<script>
+/* ==================== DATA ==================== */
+const SEED = `
+CREATE TABLE employees(id INTEGER PRIMARY KEY, name TEXT, department TEXT, salary INTEGER, hire_date TEXT, manager_id INTEGER);
+INSERT INTO employees VALUES
+ (1,'Alice','Engineering',98000,'2021-03-15',NULL),
+ (2,'Bob','Sales',72000,'2022-01-10',5),
+ (3,'Carmen','Engineering',88000,'2022-06-01',1),
+ (4,'Dev','Engineering',76000,'2023-02-20',1),
+ (5,'Elena','Sales',91000,'2020-11-05',NULL),
+ (6,'Farid','Marketing',64000,'2023-04-12',9),
+ (7,'Grace','Engineering',105000,'2019-08-30',NULL),
+ (8,'Hugo','Sales',68000,'2023-09-01',5),
+ (9,'Iris','Marketing',83000,'2021-07-19',NULL),
+ (10,'Jonah','Marketing',59000,'2024-01-08',9),
+ (11,'Kira','Engineering',88000,'2024-03-03',7),
+ (12,'Leo','Sales',72000,'2024-05-22',5);
+CREATE TABLE customers(customer_id INTEGER PRIMARY KEY, name TEXT, city TEXT);
+INSERT INTO customers VALUES
+ (1,'Acme Corp','Columbus'),(2,'Brightside LLC','Cleveland'),(3,'Cardinal Co','Cincinnati'),
+ (4,'Dunmore Inc','Columbus'),(5,'Everline','Toledo'),(6,'Fairfield Group','Dayton'),
+ (7,'Glenview Partners','Akron'),(8,'Harbor & Co','Columbus');
+CREATE TABLE orders(order_id INTEGER PRIMARY KEY, customer_id INTEGER, employee_id INTEGER, amount INTEGER, order_date TEXT);
+INSERT INTO orders VALUES
+ (101,1,2,250,'2025-01-04'),(102,2,2,150,'2025-01-09'),(103,1,8,420,'2025-01-15'),
+ (104,3,5,310,'2025-02-02'),(105,4,8,95,'2025-02-11'),(106,1,2,600,'2025-02-20'),
+ (107,5,12,180,'2025-03-01'),(108,2,5,275,'2025-03-08'),(109,3,12,330,'2025-03-15'),
+ (110,4,2,510,'2025-04-02'),(111,1,5,120,'2025-04-18'),(112,6,8,260,'2025-04-25'),
+ (113,2,12,340,'2025-05-06'),(114,5,2,205,'2025-05-14'),(115,3,8,415,'2025-05-28');
+CREATE TABLE raw_signups(signup_id INTEGER, email TEXT, plan TEXT, created_at TEXT);
+INSERT INTO raw_signups VALUES
+ (1,'amy@mail.com','free','2025-01-01'),(2,'ben@mail.com','pro','2025-01-02'),
+ (3,'amy@mail.com','pro','2025-01-05'),(4,'cal@mail.com','free','2025-01-06'),
+ (5,'ben@mail.com','pro','2025-01-07'),(6,'amy@mail.com','team','2025-01-09'),
+ (7,'dee@mail.com','free','2025-01-10');
+`;
+
+const SCHEMA = {
+  employees:['id','name','department','salary','hire_date','manager_id'],
+  customers:['customer_id','name','city'],
+  orders:['order_id','customer_id','employee_id','amount','order_date'],
+  raw_signups:['signup_id','email','plan','created_at']
+};
+
+const CONCEPTS = [
+{id:'select',lvl:'Beginner',t:'SELECT & FROM',d:'Pick columns from a table',
+ ex:'SELECT picks the columns you want; FROM names the table. SELECT * returns every column — fine for exploring, frowned on in production code and in interviews.',
+ syn:'SELECT column1, column2\nFROM table_name;',
+ try:'SELECT name, salary FROM employees;',
+ bad:"SELECT *\nFROM employees;",good:"SELECT name, salary\nFROM employees;",
+ why:'Naming columns shows intent, keeps results stable if the table changes, and signals discipline to an interviewer.'},
+{id:'where',lvl:'Beginner',t:'WHERE',d:'Filter rows before anything else',
+ ex:'WHERE keeps only rows that satisfy a condition. It runs before grouping and aggregation, which is exactly why you can\u2019t put SUM() or COUNT() inside it.',
+ syn:'SELECT ...\nFROM table\nWHERE condition;',
+ try:"SELECT name, department FROM employees WHERE department = 'Engineering';",
+ bad:"WHERE salary = NULL",good:"WHERE salary IS NULL",
+ why:'NULL is unknown, not a value — nothing equals NULL, not even NULL. Comparisons with = always come back unknown, so use IS NULL / IS NOT NULL.'},
+{id:'orderlimit',lvl:'Beginner',t:'ORDER BY & LIMIT',d:'Sort, then take the top N',
+ ex:'ORDER BY sorts the final result (ASC default, DESC for descending). LIMIT then trims it. Together they answer every \u201ctop N\u201d warm-up question.',
+ syn:'SELECT ...\nFROM table\nORDER BY col DESC\nLIMIT 5;',
+ try:'SELECT name, salary FROM employees ORDER BY salary DESC LIMIT 3;',
+ bad:'LIMIT 3 -- with no ORDER BY',good:'ORDER BY salary DESC\nLIMIT 3;',
+ why:'Without ORDER BY, LIMIT returns an arbitrary 3 rows. \u201cTop 3\u201d only means something after a sort.'},
+{id:'distinct',lvl:'Beginner',t:'DISTINCT',d:'Drop duplicate rows from output',
+ ex:'DISTINCT removes duplicate rows from the result. It applies to the whole selected row, not just the first column.',
+ syn:'SELECT DISTINCT department\nFROM employees;',
+ try:'SELECT DISTINCT department FROM employees;',
+ bad:'SELECT DISTINCT department, name ...',good:'SELECT DISTINCT department ...',
+ why:'Adding more columns makes more rows unique \u2014 DISTINCT on (department, name) keeps every employee. Distinct-ness is about the full column list.'},
+{id:'agg',lvl:'Intermediate',t:'Aggregate functions',d:'COUNT, SUM, AVG, MIN, MAX',
+ ex:'Aggregates collapse many rows into one value. COUNT(*) counts rows; COUNT(col) counts non-NULL values in that column \u2014 a classic interview trap. AVG ignores NULLs too.',
+ syn:'SELECT COUNT(*), AVG(salary), MAX(salary)\nFROM employees;',
+ try:'SELECT COUNT(*) AS headcount, ROUND(AVG(salary),0) AS avg_salary FROM employees;',
+ bad:'COUNT(manager_id) -- expecting all rows',good:'COUNT(*) -- counts every row',
+ why:'COUNT(manager_id) skips employees whose manager_id is NULL. Know which behavior the question wants.'},
+{id:'groupby',lvl:'Intermediate',t:'GROUP BY',d:'One result row per group',
+ ex:'GROUP BY splits rows into buckets and runs aggregates per bucket. Rule of thumb: every selected column is either inside an aggregate or listed in GROUP BY.',
+ syn:'SELECT department, AVG(salary)\nFROM employees\nGROUP BY department;',
+ try:'SELECT department, COUNT(*) AS n, ROUND(AVG(salary),0) AS avg_sal FROM employees GROUP BY department;',
+ bad:'SELECT department, name, AVG(salary)\nGROUP BY department;',good:'SELECT department, AVG(salary)\nGROUP BY department;',
+ why:'name is neither aggregated nor grouped \u2014 which employee\u2019s name would the row show? Most databases reject it; SQLite picks one silently, which is worse.'},
+{id:'having',lvl:'Intermediate',t:'HAVING',d:'Filter groups after aggregation',
+ ex:'HAVING is WHERE for groups: it filters after GROUP BY, so it can use aggregates. Order of events: WHERE \u2192 GROUP BY \u2192 HAVING \u2192 ORDER BY.',
+ syn:'SELECT department, COUNT(*)\nFROM employees\nGROUP BY department\nHAVING COUNT(*) > 3;',
+ try:'SELECT department, COUNT(*) AS n FROM employees GROUP BY department HAVING COUNT(*) >= 4;',
+ bad:'WHERE COUNT(*) > 3',good:'HAVING COUNT(*) > 3',
+ why:'WHERE runs before grouping, so no aggregates exist yet. \u201cDifference between WHERE and HAVING\u201d is a top-five interview question \u2014 say this sentence.'},
+{id:'case',lvl:'Intermediate',t:'CASE WHEN',d:'If/else logic inside a query',
+ ex:'CASE returns a value per row based on conditions \u2014 great for bucketing (salary bands, status labels) and for pivot-style conditional aggregation like SUM(CASE WHEN ... THEN 1 ELSE 0 END).',
+ syn:"CASE WHEN salary >= 90000 THEN 'senior'\n     WHEN salary >= 70000 THEN 'mid'\n     ELSE 'junior' END",
+ try:"SELECT name, salary, CASE WHEN salary >= 90000 THEN 'senior' WHEN salary >= 70000 THEN 'mid' ELSE 'junior' END AS band FROM employees;",
+ bad:'CASE WHEN ... THEN ... -- no ELSE',good:"CASE WHEN ... THEN ... ELSE 'other' END",
+ why:'Without ELSE, unmatched rows get NULL. Sometimes that\u2019s fine \u2014 but say it on purpose, not by accident.'},
+{id:'strdate',lvl:'Intermediate',t:'String & date functions',d:'Clean, slice, and bucket values',
+ ex:"Strings: UPPER, LOWER, LENGTH, SUBSTR, TRIM, ||\u00a0for concat. Dates in SQLite: strftime('%Y-%m', d) buckets by month, DATE('now') is today. Other engines spell these differently (DATE_TRUNC, CONCAT) \u2014 the concepts transfer.",
+ syn:"SELECT strftime('%Y-%m', order_date) AS month,\n       SUM(amount)\nFROM orders\nGROUP BY month;",
+ try:"SELECT strftime('%Y-%m', order_date) AS month, SUM(amount) AS revenue FROM orders GROUP BY month ORDER BY month;",
+ bad:"WHERE strftime('%Y',hire_date)=2021",good:"WHERE strftime('%Y',hire_date)='2021'",
+ why:'strftime returns text. Comparing text to the number 2021 fails quietly. Type mismatches around dates are a favorite debugging question.'},
+{id:'innerjoin',lvl:'Advanced',t:'INNER JOIN',d:'Only rows that match on both sides',
+ ex:'INNER JOIN combines tables on a key and keeps only matched rows. Unmatched rows on either side disappear \u2014 which is sometimes exactly what you want, and sometimes a silent bug.',
+ syn:'SELECT o.order_id, c.name\nFROM orders o\nJOIN customers c\n  ON o.customer_id = c.customer_id;',
+ try:'SELECT o.order_id, c.name AS customer, o.amount FROM orders o JOIN customers c ON o.customer_id = c.customer_id LIMIT 8;',
+ bad:'FROM orders, customers -- no ON',good:'JOIN customers c ON o.customer_id = c.customer_id',
+ why:'A join without a condition is a cross join: every order paired with every customer. Row counts explode and aggregates go wrong.'},
+{id:'leftjoin',lvl:'Advanced',t:'LEFT / RIGHT / FULL JOIN',d:'Keep unmatched rows from one or both sides',
+ ex:'LEFT JOIN keeps every row from the left table; missing matches become NULLs. \u201cCustomers with zero orders\u201d = LEFT JOIN + WHERE right-side key IS NULL. RIGHT is a mirrored LEFT; FULL keeps both sides.',
+ syn:'SELECT c.name, o.order_id\nFROM customers c\nLEFT JOIN orders o\n  ON c.customer_id = o.customer_id;',
+ try:'SELECT c.name, COUNT(o.order_id) AS orders FROM customers c LEFT JOIN orders o ON c.customer_id = o.customer_id GROUP BY c.name;',
+ bad:'LEFT JOIN orders o ON ...\nWHERE o.amount > 100',good:'LEFT JOIN orders o\n  ON ... AND o.amount > 100',
+ why:'Filtering the right table in WHERE drops the NULL rows and silently turns your LEFT JOIN into an INNER JOIN. Put right-side filters in the ON clause.'},
+{id:'selfjoin',lvl:'Advanced',t:'Self join',d:'Join a table to itself',
+ ex:'Alias the same table twice to compare rows with each other \u2014 employee-to-manager is the canonical example, asked constantly.',
+ syn:'SELECT e.name, m.name AS manager\nFROM employees e\nLEFT JOIN employees m\n  ON e.manager_id = m.id;',
+ try:'SELECT e.name, m.name AS manager FROM employees e LEFT JOIN employees m ON e.manager_id = m.id;',
+ bad:'INNER JOIN employees m ...',good:'LEFT JOIN employees m ...',
+ why:'INNER drops everyone with manager_id NULL \u2014 you\u2019d lose the executives. Decide deliberately whether top-level rows should survive.'},
+{id:'subquery',lvl:'Advanced',t:'Subqueries',d:'A query inside a query',
+ ex:'Subqueries appear in WHERE (compare to a computed value or IN-list), in FROM (a derived table), or in SELECT (a scalar per row). Correlated subqueries reference the outer row and rerun per row.',
+ syn:'SELECT name, salary\nFROM employees\nWHERE salary > (SELECT AVG(salary) FROM employees);',
+ try:'SELECT name, salary FROM employees WHERE salary > (SELECT AVG(salary) FROM employees);',
+ bad:'WHERE salary > AVG(salary)',good:'WHERE salary > (SELECT AVG(salary) FROM employees)',
+ why:'Aggregates can\u2019t live bare in WHERE \u2014 wrap the aggregate in a subquery (or use a window function).'},
+{id:'cte',lvl:'Advanced',t:'CTEs (WITH)',d:'Named, readable building blocks',
+ ex:'A CTE names an intermediate result so the main query reads top-to-bottom. Interviewers love them because they make your thinking visible. You can chain several with commas.',
+ syn:'WITH dept_avg AS (\n  SELECT department, AVG(salary) AS avg_sal\n  FROM employees GROUP BY department\n)\nSELECT e.name, e.salary\nFROM employees e\nJOIN dept_avg d ON e.department = d.department\nWHERE e.salary > d.avg_sal;',
+ try:'WITH dept_avg AS (SELECT department, AVG(salary) AS avg_sal FROM employees GROUP BY department) SELECT e.name, e.department, e.salary FROM employees e JOIN dept_avg d ON e.department = d.department WHERE e.salary > d.avg_sal;',
+ bad:'WITH cte AS (...)\n\nSELECT ... -- detached',good:'WITH cte AS (...)\nSELECT ... -- one statement',
+ why:'A CTE only exists for the single statement attached to it \u2014 it isn\u2019t a temp table you can use later.'},
+{id:'window',lvl:'Advanced',t:'Window functions',d:'Aggregate without collapsing rows',
+ ex:'OVER() computes across a window of rows while keeping every row. PARTITION BY restarts per group; ORDER BY inside OVER turns SUM into a running total. This is the single highest-yield advanced topic for data-engineering screens.',
+ syn:'SELECT name, department, salary,\n  AVG(salary) OVER (PARTITION BY department) AS dept_avg\nFROM employees;',
+ try:'SELECT name, department, salary, ROUND(AVG(salary) OVER (PARTITION BY department),0) AS dept_avg FROM employees;',
+ bad:'GROUP BY then re-join to get detail',good:'window function: detail + aggregate in one pass',
+ why:'Both work, but the window version is shorter, faster to write under pressure, and what interviewers expect when they say \u201ccompare each row to its group.\u201d'},
+{id:'ranking',lvl:'Advanced',t:'ROW_NUMBER / RANK / DENSE_RANK',d:'Number rows within groups',
+ ex:'All three number rows by some order. Ties: ROW_NUMBER breaks them arbitrarily (1,2,3,4); RANK skips after ties (1,2,2,4); DENSE_RANK doesn\u2019t skip (1,2,2,3). \u201cExplain the difference\u201d is near-guaranteed.',
+ syn:'SELECT name, department, salary,\n  ROW_NUMBER() OVER (PARTITION BY department ORDER BY salary DESC) AS rn\nFROM employees;',
+ try:'SELECT name, department, salary, DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) AS rnk FROM employees;',
+ bad:'WHERE ROW_NUMBER() OVER (...) = 1',good:'wrap it in a CTE, then WHERE rn = 1',
+ why:'Window functions are computed after WHERE, so you can\u2019t filter on them directly. Compute in a CTE or subquery, filter outside.'},
+{id:'setops',lvl:'Advanced',t:'UNION / INTERSECT / EXCEPT',d:'Stack or compare result sets',
+ ex:'UNION stacks results and removes duplicates; UNION ALL keeps them (and is faster). INTERSECT keeps rows in both; EXCEPT keeps rows in the first but not the second. Column counts and types must line up.',
+ syn:'SELECT name FROM employees WHERE department=\u0027Sales\u0027\nUNION ALL\nSELECT name FROM customers;',
+ try:"SELECT name FROM employees WHERE department='Sales' UNION ALL SELECT name FROM customers WHERE city='Columbus';",
+ bad:'UNION -- by default, everywhere',good:'UNION ALL -- unless you need dedup',
+ why:'UNION pays for a dedup sort whether you need it or not. Saying \u201cUNION ALL unless I need distinct rows\u201d earns easy points.'},
+{id:'dedup',lvl:'Data Engineering',t:'Deduplication',d:'Keep one row per entity',
+ ex:'The standard pattern: ROW_NUMBER() partitioned by the duplicate key, ordered by the rule for which copy wins (usually latest created_at), then keep rn = 1. Also be ready for \u201cfind the duplicates\u201d: GROUP BY key HAVING COUNT(*) > 1.',
+ syn:'WITH ranked AS (\n  SELECT *, ROW_NUMBER() OVER (\n    PARTITION BY email ORDER BY created_at DESC) AS rn\n  FROM raw_signups\n)\nSELECT * FROM ranked WHERE rn = 1;',
+ try:'WITH ranked AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY email ORDER BY created_at DESC) AS rn FROM raw_signups) SELECT signup_id, email, plan, created_at FROM ranked WHERE rn = 1;',
+ bad:'SELECT DISTINCT * FROM raw_signups;',good:'ROW_NUMBER() ... WHERE rn = 1',
+ why:'DISTINCT only removes rows that are identical in every column. Real duplicates differ in timestamps or ids \u2014 you must define the key and the winner.'},
+{id:'topn',lvl:'Data Engineering',t:'Top N per group',d:'Highest paid per department & friends',
+ ex:'\u201cTop 3 products per category,\u201d \u201chighest-paid per department,\u201d \u201clatest order per customer\u201d \u2014 all the same shape: rank within a partition, filter on the rank.',
+ syn:'WITH r AS (\n  SELECT *, DENSE_RANK() OVER (\n    PARTITION BY department ORDER BY salary DESC) AS rnk\n  FROM employees\n)\nSELECT name, department, salary FROM r WHERE rnk <= 2;',
+ try:'WITH r AS (SELECT *, DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) AS rnk FROM employees) SELECT name, department, salary FROM r WHERE rnk <= 2;',
+ bad:'GROUP BY department + MAX(salary), then guess the name',good:'rank in a CTE, filter on the rank',
+ why:'MAX gives the value but ties and the matching row are awkward. The ranking pattern handles N, ties, and extra columns cleanly.'},
+{id:'runtotal',lvl:'Data Engineering',t:'Running totals',d:'Cumulative sums over time',
+ ex:'SUM(...) OVER (ORDER BY date) accumulates as it goes. Add PARTITION BY for a running total per customer or per region. The frame defaults to \u201cstart through current row,\u201d which is what you want.',
+ syn:'SELECT order_date, amount,\n  SUM(amount) OVER (ORDER BY order_date) AS running_total\nFROM orders;',
+ try:'SELECT order_date, amount, SUM(amount) OVER (ORDER BY order_date, order_id) AS running_total FROM orders;',
+ bad:'ORDER BY order_date -- with tied dates',good:'ORDER BY order_date, order_id -- deterministic',
+ why:'Ties in the ordering make the running total ambiguous mid-tie. Adding a unique tiebreaker makes results reproducible \u2014 a very data-engineer thing to say.'},
+{id:'nulls',lvl:'Data Engineering',t:'NULL handling',d:'The source of half of all SQL bugs',
+ ex:'NULL means unknown. It fails every comparison, vanishes from COUNT(col) and AVG, and NOT IN with a NULL in the list returns nothing. COALESCE(x, fallback) substitutes a default.',
+ syn:'SELECT name,\n  COALESCE(manager_id, -1) AS mgr\nFROM employees\nWHERE manager_id IS NULL;',
+ try:'SELECT name, COALESCE(CAST(manager_id AS TEXT), \u0027(no manager)\u0027) AS manager_id FROM employees;',
+ bad:'WHERE id NOT IN (SELECT manager_id FROM employees)',good:'WHERE id NOT IN (SELECT manager_id FROM employees WHERE manager_id IS NOT NULL)',
+ why:'One NULL in the NOT IN list makes every comparison unknown \u2014 the query returns zero rows. Filter NULLs out, or use NOT EXISTS.'},
+{id:'warehouse',lvl:'Data Engineering',t:'Star vs snowflake schema',d:'Warehouse modeling in one breath',
+ ex:'A star schema has a central fact table (events/transactions with measures) joined to denormalized dimension tables (who, what, where, when). A snowflake normalizes the dimensions into sub-tables. Star = simpler queries, more storage; snowflake = less redundancy, more joins. Most analytics warehouses favor star.',
+ syn:'-- fact_orders(order_id, customer_key, date_key, amount)\n-- dim_customer(customer_key, name, city, segment)\n-- dim_date(date_key, day, month, year)',
+ try:'SELECT c.city, SUM(o.amount) AS revenue FROM orders o JOIN customers c ON o.customer_id = c.customer_id GROUP BY c.city ORDER BY revenue DESC;',
+ bad:'\u201cStar is always better\u201d',good:'\u201cStar for query simplicity; snowflake when dimensions are huge or update often\u201d',
+ why:'Trade-off answers beat absolute answers. Mention that columnar warehouses make the storage cost of denormalization cheap.'},
+{id:'etl',lvl:'Data Engineering',t:'ETL, incremental loads & data quality',d:'Pipeline concepts they probe for',
+ ex:'ETL = extract, transform, load (ELT pushes transform into the warehouse). Incremental loads process only new/changed rows \u2014 track a watermark like MAX(updated_at) and filter source rows newer than it. Quality checks worth naming: row counts vs source, primary-key uniqueness, NULL rates on required columns, freshness (latest timestamp), and referential integrity.',
+ syn:"-- incremental pattern\nSELECT * FROM source\nWHERE updated_at > (SELECT MAX(updated_at) FROM target);",
+ try:"SELECT email, COUNT(*) AS copies FROM raw_signups GROUP BY email HAVING COUNT(*) > 1;",
+ bad:'Full reload every run',good:'Watermark + incremental upsert',
+ why:'Full reloads are simple but don\u2019t scale and hammer the source. Knowing when each is appropriate (small dims: full; big facts: incremental) reads as real experience.'}
+];
+const PROBLEMS = [
+{id:'p1',topic:'Filtering',diff:'easy',q:'List the name and salary of every employee in Engineering.',
+ hints:['You only need one table and one condition.','Filter rows with WHERE; text values go in single quotes.',"Pattern: SELECT name, salary FROM employees WHERE department = '...';"],
+ sol:"SELECT name, salary FROM employees WHERE department = 'Engineering';"},
+{id:'p2',topic:'Sorting',diff:'easy',q:'Show the 3 most recent hires: name and hire_date, newest first.',
+ hints:['Recency lives in hire_date.','Sort descending, then trim the result.','ORDER BY hire_date DESC LIMIT 3.'],
+ sol:'SELECT name, hire_date FROM employees ORDER BY hire_date DESC LIMIT 3;',ordered:true},
+{id:'p3',topic:'Aggregation',diff:'easy',q:'For each department, show the department name and the number of employees (call it n).',
+ hints:['One row per department means GROUP BY.','COUNT(*) counts rows per group.','SELECT department, COUNT(*) AS n ... GROUP BY department;'],
+ sol:'SELECT department, COUNT(*) AS n FROM employees GROUP BY department;'},
+{id:'p4',topic:'Aggregation',diff:'medium',q:'Which departments have an average salary above 75,000? Return department and the average (call it avg_sal).',
+ hints:['You need an aggregate per group AND a filter on that aggregate.','WHERE can\u2019t see AVG \u2014 what filters groups?','GROUP BY department HAVING AVG(salary) > 75000.'],
+ sol:'SELECT department, AVG(salary) AS avg_sal FROM employees GROUP BY department HAVING AVG(salary) > 75000;'},
+{id:'p5',topic:'Joins',diff:'medium',q:'Total order amount per customer: customer name and SUM of amount (call it total), highest first.',
+ hints:['Order amounts live in orders; names live in customers.','JOIN on customer_id, then GROUP BY the name.','SUM(amount) AS total ... ORDER BY total DESC.'],
+ sol:'SELECT c.name, SUM(o.amount) AS total FROM orders o JOIN customers c ON o.customer_id = c.customer_id GROUP BY c.name ORDER BY total DESC;',ordered:true},
+{id:'p6',topic:'Joins',diff:'medium',q:'Find customers who have never placed an order. Return just their names.',
+ hints:['You need rows from customers that have no match in orders.','LEFT JOIN keeps unmatched customers \u2014 what do their order columns contain?','WHERE o.order_id IS NULL after the LEFT JOIN.'],
+ sol:'SELECT c.name FROM customers c LEFT JOIN orders o ON c.customer_id = o.customer_id WHERE o.order_id IS NULL;'},
+{id:'p7',topic:'Self join',diff:'medium',q:'Show every employee\u2019s name alongside their manager\u2019s name (call it manager). Employees without a manager should still appear.',
+ hints:['Manager info is in the same table \u2014 alias employees twice.','Match e.manager_id to m.id.','LEFT JOIN keeps the top-level folks with NULL managers.'],
+ sol:'SELECT e.name, m.name AS manager FROM employees e LEFT JOIN employees m ON e.manager_id = m.id;'},
+{id:'p8',topic:'Subqueries',diff:'medium',q:'List employees (name, department, salary) earning more than the average salary of their own department.',
+ hints:['Compare each row to a per-department average.','Compute the averages in a CTE or correlated subquery.','JOIN employees to a (department, avg) result and compare.'],
+ sol:'SELECT e.name, e.department, e.salary FROM employees e JOIN (SELECT department, AVG(salary) AS a FROM employees GROUP BY department) d ON e.department = d.department WHERE e.salary > d.a;'},
+{id:'p9',topic:'Window functions',diff:'hard',q:'Find the second-highest salary in each department. Return department and that salary (call it salary). Use DENSE_RANK so ties share a rank.',
+ hints:['Rank salaries within each department, descending.','DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC).','Filter rank = 2 in an outer query \u2014 you can\u2019t filter on a window function directly. Tip: SELECT DISTINCT department, salary in the outer query so tied rows don\u2019t duplicate.'],
+ sol:'WITH r AS (SELECT department, salary, DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) AS rnk FROM employees) SELECT DISTINCT department, salary FROM r WHERE rnk = 2;'},
+{id:'p10',topic:'Window functions',diff:'hard',q:'Produce a running total of order revenue over time: order_date, amount, and running_total, ordered by order_date then order_id.',
+ hints:['A running total is SUM(...) OVER (ORDER BY ...).','Dates repeat \u2014 add order_id as a tiebreaker inside OVER and in the final ORDER BY.','SUM(amount) OVER (ORDER BY order_date, order_id) AS running_total.'],
+ sol:'SELECT order_date, amount, SUM(amount) OVER (ORDER BY order_date, order_id) AS running_total FROM orders ORDER BY order_date, order_id;',ordered:true},
+{id:'p11',topic:'Deduplication',diff:'hard',q:'raw_signups has duplicate emails. Keep only the most recent signup per email: return signup_id, email, plan, created_at.',
+ hints:['Define the duplicate key (email) and the winner (latest created_at).','ROW_NUMBER() OVER (PARTITION BY email ORDER BY created_at DESC).','Wrap in a CTE, keep rn = 1.'],
+ sol:'WITH r AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY email ORDER BY created_at DESC) AS rn FROM raw_signups) SELECT signup_id, email, plan, created_at FROM r WHERE rn = 1;'},
+{id:'p12',topic:'Top N per group',diff:'hard',q:'For each department, show the top 2 earners: name, department, salary. Use ROW_NUMBER (arbitrary tie-break is fine).',
+ hints:['Same shape as dedup: rank within a partition, filter the rank.','ROW_NUMBER() OVER (PARTITION BY department ORDER BY salary DESC).','Keep rn <= 2 in the outer query.'],
+ sol:'WITH r AS (SELECT name, department, salary, ROW_NUMBER() OVER (PARTITION BY department ORDER BY salary DESC, id) AS rn FROM employees) SELECT name, department, salary FROM r WHERE rn <= 2;'}
+];
+
+const BANK = [
+{cat:'SQL fundamentals',items:[
+ ['Difference between WHERE and HAVING?','WHERE filters individual rows before grouping; HAVING filters groups after aggregation. That\u2019s why HAVING can use COUNT/SUM and WHERE can\u2019t. Execution order: FROM \u2192 WHERE \u2192 GROUP BY \u2192 HAVING \u2192 SELECT \u2192 ORDER BY.'],
+ ['DELETE vs TRUNCATE vs DROP?','DELETE removes rows (optionally with WHERE), is logged row-by-row, and can be rolled back. TRUNCATE removes all rows fast with minimal logging and resets identity counters. DROP removes the table itself \u2014 data, structure, indexes, everything.'],
+ ['Primary key vs unique key?','Both enforce uniqueness. A primary key also disallows NULL and a table has exactly one; unique constraints can allow a NULL (engine-dependent) and a table can have many. The PK is the row\u2019s identity.'],
+ ['What is a foreign key?','A column that references another table\u2019s primary (or unique) key, enforcing referential integrity \u2014 you can\u2019t point at a row that doesn\u2019t exist. In warehouses FKs are often declared but not enforced, and integrity is checked in pipelines instead.'],
+ ['Order of execution of a SELECT?','FROM/JOIN \u2192 WHERE \u2192 GROUP BY \u2192 HAVING \u2192 SELECT (expressions/aliases) \u2192 DISTINCT \u2192 ORDER BY \u2192 LIMIT. Explains why WHERE can\u2019t use SELECT aliases but ORDER BY can.']]},
+{cat:'Joins',items:[
+ ['Explain INNER vs LEFT JOIN.','INNER keeps only rows that match on both sides. LEFT keeps every left-table row, filling unmatched right-side columns with NULL. Use LEFT when "all X, with their Y if any" \u2014 e.g., all customers with their orders, including customers with none.'],
+ ['When does a JOIN multiply rows?','When the join key isn\u2019t unique on one side. One order matching three rows in a dimension produces three copies \u2014 then SUMs are inflated. Always know the grain of each table; dedupe or aggregate before joining if needed.'],
+ ['Why did my LEFT JOIN act like an INNER JOIN?','A WHERE filter on the right table (e.g., WHERE o.amount > 100) discards the NULL rows that the LEFT JOIN preserved. Move right-side conditions into the ON clause to keep unmatched left rows.'],
+ ['What is a self join used for?','Comparing rows of a table to other rows of the same table: employee\u2192manager hierarchies, finding pairs of events by the same user, comparing each day to the previous day (though window functions often do this better now).']]},
+{cat:'Aggregation & windows',items:[
+ ['COUNT(*) vs COUNT(column) vs COUNT(DISTINCT column)?','COUNT(*) counts rows. COUNT(col) counts rows where col is not NULL. COUNT(DISTINCT col) counts unique non-NULL values. Mixing these up changes answers whenever NULLs or duplicates exist.'],
+ ['ROW_NUMBER vs RANK vs DENSE_RANK?','All number rows by an ordering. Ties: ROW_NUMBER assigns arbitrary distinct numbers (1,2,3,4); RANK gives ties the same number and skips (1,2,2,4); DENSE_RANK gives ties the same number without skipping (1,2,2,3). Use ROW_NUMBER for dedup, DENSE_RANK for "Nth highest".'],
+ ['What does PARTITION BY do?','It restarts the window calculation for each group \u2014 like GROUP BY, but without collapsing rows. AVG(salary) OVER (PARTITION BY department) puts the department average on every employee row.'],
+ ['How would you compute a running total?','SUM(amount) OVER (ORDER BY date, id). The ORDER BY inside OVER makes the frame cumulative. Add PARTITION BY customer_id for a per-customer running total, and a unique tiebreaker so ties are deterministic.']]},
+{cat:'Data engineering',items:[
+ ['How do you deduplicate a table?','ROW_NUMBER() OVER (PARTITION BY business_key ORDER BY updated_at DESC) in a CTE, keep rn = 1. The two decisions that matter: what defines a duplicate (the key) and which copy wins (the ordering). DISTINCT only works if rows are identical in every column.'],
+ ['How do you find duplicates?','GROUP BY the business key HAVING COUNT(*) > 1. To see the offending rows, join that result back or use COUNT(*) OVER (PARTITION BY key) > 1.'],
+ ['What is an incremental load?','Processing only rows that are new or changed since the last run, tracked with a watermark such as MAX(updated_at) in the target. Cheaper and faster than full reloads, but you must handle late-arriving and updated records \u2014 typically with a merge/upsert.'],
+ ['Star vs snowflake schema?','Star: one fact table joined to flat, denormalized dimensions \u2014 fewer joins, simpler queries. Snowflake: dimensions normalized into sub-tables \u2014 less redundancy, more joins. Modern columnar warehouses make star the usual default.'],
+ ['What data-quality checks would you add to a pipeline?','Volume (row counts vs source or vs history), uniqueness of primary keys, NULL rates on required columns, freshness (max timestamp recency), accepted-value checks on enums, and referential integrity between fact and dimension keys.'],
+ ['How do indexes speed up queries?','An index is a sorted structure (typically a B-tree) on chosen columns, letting the engine seek matching rows instead of scanning the whole table. They cost write time and storage, and they help WHERE/JOIN/ORDER BY on the leading indexed columns. Columnar warehouses rely more on partitioning and clustering than classic indexes.']]}
+];
+
+const FLASH = [
+['WHERE vs HAVING','fundamentals','WHERE filters rows before aggregation; HAVING filters groups after. HAVING can use aggregates, WHERE cannot.'],
+['Why does salary = NULL match nothing?','NULLs','NULL is unknown \u2014 every comparison with = returns unknown, which is not true. Use IS NULL.'],
+['ROW_NUMBER vs RANK vs DENSE_RANK on ties','windows','ROW_NUMBER: 1,2,3,4 (arbitrary). RANK: 1,2,2,4 (skips). DENSE_RANK: 1,2,2,3 (no skip).'],
+['UNION vs UNION ALL','set ops','UNION dedupes (slower); UNION ALL keeps everything (faster). Default to ALL unless you need distinct rows.'],
+['Keep unmatched left rows after filtering the right table','joins','Put the right-table condition in ON, not WHERE \u2014 otherwise the LEFT JOIN silently becomes INNER.'],
+['Dedup pattern in one line','data eng','ROW_NUMBER() OVER (PARTITION BY key ORDER BY updated_at DESC) \u2192 keep rn = 1.'],
+['COUNT(*) vs COUNT(col)','aggregates','COUNT(*) counts rows; COUNT(col) skips NULLs in that column.'],
+['Why can\u2019t I do WHERE rn = 1 directly?','windows','Window functions are evaluated after WHERE. Compute in a CTE/subquery, filter outside.'],
+['DELETE vs TRUNCATE','fundamentals','DELETE: row-by-row, supports WHERE, rollback-friendly. TRUNCATE: all rows, fast, resets identity.'],
+['NOT IN returns zero rows \u2014 why?','NULLs','A NULL in the subquery list makes every comparison unknown. Filter NULLs or use NOT EXISTS.'],
+['Running total','windows','SUM(amount) OVER (ORDER BY date, id) \u2014 include a unique tiebreaker for determinism.'],
+['Star schema in one sentence','data eng','Central fact table of measures joined to flat dimension tables \u2014 simple joins, fast analytics.'],
+['Incremental load watermark','data eng','Load only source rows where updated_at > MAX(updated_at) already in the target, then merge.'],
+['Find duplicate keys','data eng','GROUP BY key HAVING COUNT(*) > 1.']
+];
+
+const MOCK_MCQ = [
+{q:'Which clause filters groups after aggregation?',c:['WHERE','HAVING','GROUP BY','ORDER BY'],a:1},
+{q:'WHERE salary = NULL returns\u2026',c:['rows where salary is NULL','all rows','no rows','a syntax error'],a:2},
+{q:'With salaries 100, 90, 90, 80, DENSE_RANK gives\u2026',c:['1,2,2,4','1,2,2,3','1,2,3,4','1,1,2,3'],a:1},
+{q:'A LEFT JOIN from customers to orders keeps\u2026',c:['only matched rows','all orders','all customers','all rows from both'],a:2},
+{q:'Which is generally fastest?',c:['UNION','UNION ALL','INTERSECT','EXCEPT'],a:1},
+{q:'COUNT(manager_id) differs from COUNT(*) because it\u2026',c:['counts distinct values','ignores NULLs','counts columns','is always smaller by 1'],a:1},
+{q:'To filter on ROW_NUMBER() you must\u2026',c:['use HAVING','use WHERE directly','compute it in a CTE/subquery first','use ORDER BY'],a:2},
+{q:'The standard dedup pattern keeps rows where\u2026',c:['DISTINCT = 1','rn = 1 from ROW_NUMBER over the dup key','COUNT(*) > 1','rank is NULL'],a:1}
+];
+const MOCK_SQL = [
+{q:'Round 2, task 1 \u2014 Revenue per customer city: city and SUM(amount) as revenue, highest first.',
+ sol:'SELECT c.city, SUM(o.amount) AS revenue FROM orders o JOIN customers c ON o.customer_id = c.customer_id GROUP BY c.city ORDER BY revenue DESC;',ordered:true},
+{q:'Round 2, task 2 \u2014 Highest-paid employee per department: name, department, salary (use ROW_NUMBER; break ties however you like\u2026 but each department appears once).',
+ sol:'WITH r AS (SELECT name, department, salary, ROW_NUMBER() OVER (PARTITION BY department ORDER BY salary DESC, id) AS rn FROM employees) SELECT name, department, salary FROM r WHERE rn = 1;'},
+{q:'Round 2, task 3 \u2014 Keep the latest signup per email from raw_signups: email and its latest created_at (as created_at).',
+ sol:'SELECT email, MAX(created_at) AS created_at FROM raw_signups GROUP BY email;'}
+];
+
+const SAMPLES = [
+['Top earners','SELECT name, salary FROM employees ORDER BY salary DESC LIMIT 5;'],
+['Avg salary by dept','SELECT department, ROUND(AVG(salary),0) AS avg_salary, COUNT(*) AS n\nFROM employees\nGROUP BY department;'],
+['Orders with customer names','SELECT o.order_id, c.name AS customer, o.amount, o.order_date\nFROM orders o\nJOIN customers c ON o.customer_id = c.customer_id;'],
+['Employee \u2192 manager (self join)','SELECT e.name, m.name AS manager\nFROM employees e\nLEFT JOIN employees m ON e.manager_id = m.id;'],
+['Rank within department','SELECT name, department, salary,\n  DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) AS rnk\nFROM employees;'],
+['Running revenue total','SELECT order_date, amount,\n  SUM(amount) OVER (ORDER BY order_date, order_id) AS running_total\nFROM orders;'],
+['Dedup raw_signups','WITH ranked AS (\n  SELECT *, ROW_NUMBER() OVER (PARTITION BY email ORDER BY created_at DESC) AS rn\n  FROM raw_signups\n)\nSELECT signup_id, email, plan, created_at FROM ranked WHERE rn = 1;'],
+['Monthly revenue','SELECT strftime(\u0027%Y-%m\u0027, order_date) AS month, SUM(amount) AS revenue\nFROM orders\nGROUP BY month ORDER BY month;']
+];
+/* ==================== ENGINE & STATE ==================== */
+let db=null, SQLLib=null;
+let progress={solved:{},flash:{},read:{},mocks:[]};
+const $=s=>document.querySelector(s);
+
+async function loadProgress(){
+  try{const r=await window.storage.get('sqlprep:progress');if(r&&r.value)progress=JSON.parse(r.value);}catch(e){}
+}
+let saveT=null;
+function saveProgress(){
+  clearTimeout(saveT);
+  saveT=setTimeout(async()=>{try{await window.storage.set('sqlprep:progress',JSON.stringify(progress));}catch(e){console.error('save failed',e);}},400);
+}
+
+function resetDb(){ if(SQLLib){ db=new SQLLib.Database(); db.run(SEED); } }
+
+async function boot(){
+  await loadProgress();
+  renderRoadmap();renderSchema();renderSamples();renderFilters();renderProblems();renderBank();renderFlash();renderMockIntro();renderDash();
+  try{
+    SQLLib=await initSqlJs({locateFile:f=>`https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${f}`});
+    resetDb();
+  }catch(e){
+    flashMsg('pg-out','Could not load the SQL engine (network blocked?). Reading material still works \u2014 reload to retry the playground.','err');
+  }
+}
+
+/* ==================== HELPERS ==================== */
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+const SQL_KW=/\b(SELECT|FROM|WHERE|GROUP BY|ORDER BY|HAVING|LIMIT|JOIN|LEFT|RIGHT|FULL|INNER|OUTER|ON|AS|AND|OR|NOT|IN|IS|NULL|DISTINCT|CASE|WHEN|THEN|ELSE|END|WITH|OVER|PARTITION BY|UNION|ALL|INTERSECT|EXCEPT|INSERT|INTO|VALUES|UPDATE|SET|DELETE|CREATE|TABLE|DESC|ASC|BETWEEN|LIKE|EXISTS|CAST)\b/gi;
+const SQL_FN=/\b(COUNT|SUM|AVG|MIN|MAX|ROUND|COALESCE|ROW_NUMBER|RANK|DENSE_RANK|UPPER|LOWER|LENGTH|SUBSTR|TRIM|STRFTIME|DATE)(?=\s*\()/gi;
+function hi(sql){
+  let s=esc(sql);
+  s=s.replace(/('[^']*')/g,'\u0001$1\u0002');
+  s=s.replace(SQL_FN,m=>`<span class="fn">${m}</span>`);
+  s=s.replace(SQL_KW,m=>`<span class="kw">${m}</span>`);
+  s=s.replace(/\b(\d+)\b/g,'<span class="num">$1</span>');
+  s=s.replace(/--[^\n\u0001]*/g,m=>`<span class="cm">${m}</span>`);
+  s=s.replace(/\u0001(.*?)\u0002/g,'<span class="str">$1</span>');
+  return s;
+}
+function codeBlock(sql){return `<pre class="code">${hi(sql)}</pre>`;}
+function resultTable(res,cap=60){
+  if(!res||!res.length)return `<div class="msg info">Query ran \u2014 0 rows returned.</div>`;
+  const {columns,values}=res[0];
+  const rows=values.slice(0,cap);
+  let h=`<div class="resultwrap"><table class="rt"><thead><tr>${columns.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>`;
+  h+=rows.map(r=>`<tr>${r.map(v=>v===null?`<td class="null">NULL</td>`:`<td>${esc(v)}</td>`).join('')}</tr>`).join('');
+  h+=`</tbody></table></div>`;
+  if(values.length>cap)h+=`<div class="msg info">Showing ${cap} of ${values.length} rows.</div>`;
+  else h+=`<p style="font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:6px">${values.length} row${values.length===1?'':'s'}</p>`;
+  return h;
+}
+function runSQL(sql){ return db.exec(sql); }
+function flashMsg(id,text,kind){ $('#'+id).innerHTML=`<div class="msg ${kind}">${esc(text)}</div>`; }
+function rowsKey(res){
+  if(!res||!res.length)return[];
+  return res[0].values.map(r=>JSON.stringify(r.map(v=>typeof v==='number'?Math.round(v*1000)/1000:v)));
+}
+function sameResult(userRes,solRes,ordered){
+  const a=rowsKey(userRes),b=rowsKey(solRes);
+  if(a.length!==b.length)return false;
+  if(!ordered){a.sort();b.sort();}
+  return a.every((r,i)=>r===b[i]);
+}
+function gradeQuery(userSql,prob){
+  if(!db)return{ok:false,html:'<div class="msg err">SQL engine not loaded yet \u2014 give it a second and try again.</div>'};
+  resetDb();
+  let userRes;
+  try{userRes=runSQL(userSql);}catch(e){return{ok:false,html:`<div class="msg err">${esc(e.message)}</div>`};}
+  resetDb();
+  const solRes=runSQL(prob.sol);
+  const ok=sameResult(userRes,solRes,prob.ordered);
+  let html=resultTable(userRes);
+  html=(ok?`<div class="msg ok">\u2713 Correct \u2014 matches the expected result.</div>`
+          :`<div class="msg err">\u2717 Runs, but the result doesn\u2019t match what\u2019s expected. Check columns, filters, and grouping.</div>`)+html;
+  return{ok,html};
+}
+
+/* ==================== NAV ==================== */
+function show(v){
+  document.querySelectorAll('section.view').forEach(s=>s.classList.remove('on'));
+  $('#view-'+v).classList.add('on');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
+  window.scrollTo({top:0});
+}
+document.querySelectorAll('.nav-btn').forEach(b=>b.onclick=()=>show(b.dataset.view));
+
+/* ==================== ROADMAP & CONCEPTS ==================== */
+const LEVELS=['Beginner','Intermediate','Advanced','Data Engineering'];
+function renderRoadmap(){
+  $('#roadmap').innerHTML=LEVELS.map(lvl=>{
+    const cs=CONCEPTS.filter(c=>c.lvl===lvl);
+    const done=cs.filter(c=>progress.read[c.id]).length;
+    return `<div class="lvlblock">
+      <div class="lvlhead"><span class="kw" style="color:var(--kw)">WHERE</span> level = <span style="color:var(--str)">'${lvl}'</span> <span class="cm">-- ${done}/${cs.length} read</span></div>
+      <div class="cgrid">${cs.map(c=>`
+        <button class="ccard" onclick="openConcept('${c.id}')">
+          <b>${c.t}</b><small>${c.d}</small>${progress.read[c.id]?'<span class="done">\u2713 read</span>':''}
+        </button>`).join('')}
+      </div></div>`;
+  }).join('');
+}
+function openConcept(id){
+  const c=CONCEPTS.find(x=>x.id===id);
+  progress.read[id]=true;saveProgress();renderRoadmap();renderDash();
+  $('#concept-body').innerHTML=`
+    <div class="qhead" style="margin-top:14px"><span class="cm">-- ${esc(c.lvl.toLowerCase())}:</span> ${esc(c.t)}</div>
+    <span class="pill lvl">${c.lvl}</span>
+    <h3>what it does</h3><p>${c.ex}</p>
+    <h3>syntax</h3>${codeBlock(c.syn)}
+    <h3>try it</h3>${codeBlock(c.try)}
+    <button class="btn primary" style="margin-top:4px" onclick="toPlayground(\`${c.try.replace(/`/g,'')}\`)">Open in playground \u2192</button>
+    <h3>the common mistake</h3>
+    <div class="mistake">
+      <div class="bad"><div class="lbl">\u2717 wrong</div>${codeBlock(c.bad)}</div>
+      <div class="good"><div class="lbl">\u2713 right</div>${codeBlock(c.good)}</div>
+    </div>
+    <p style="margin-top:8px">${c.why}</p>`;
+  show('concept');
+}
+function toPlayground(sql){ $('#pg-editor').value=sql; show('playground'); runPlayground(); }
+
+/* ==================== PLAYGROUND ==================== */
+function renderSchema(){
+  $('#schema-panel').innerHTML='<h4 style="margin-bottom:10px;color:var(--ink);font-family:var(--disp);font-size:13px">Tables</h4>'+
+    Object.entries(SCHEMA).map(([t,cols])=>`<h4>${t}</h4><ul>${cols.map(c=>`<li><b>${c}</b></li>`).join('')}</ul>`).join('');
+}
+function renderSamples(){
+  $('#pg-samples').innerHTML='<option value="">Load a sample\u2026</option>'+SAMPLES.map((s,i)=>`<option value="${i}">${esc(s[0])}</option>`).join('');
+}
+function loadSample(){
+  const i=$('#pg-samples').value;if(i==='')return;
+  $('#pg-editor').value=SAMPLES[i][1];$('#pg-samples').value='';runPlayground();
+}
+let lastQuery='',lastError='';
+function runPlayground(){
+  const sql=$('#pg-editor').value.trim();
+  if(!sql)return;
+  lastQuery=sql;lastError='';
+  if(!db){flashMsg('pg-out','SQL engine still loading \u2014 try again in a second.','info');return;}
+  try{
+    const res=runSQL(sql);
+    $('#pg-out').innerHTML=resultTable(res);
+  }catch(e){
+    lastError=e.message;
+    $('#pg-out').innerHTML=`<div class="msg err">${esc(e.message)}</div><div class="msg info">Stuck? Ask the AI tutor \u2014 it can see this query and error.</div>`;
+  }
+}
+document.addEventListener('keydown',e=>{
+  if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){
+    const a=document.activeElement;
+    if(a&&a.id==='pg-editor')runPlayground();
+    if(a&&a.id==='prob-editor')checkProblem();
+    if(a&&a.id==='mock-editor')mockCheckSQL();
+  }
+});
+
+/* ==================== PRACTICE ==================== */
+let pFilter='all';
+function renderFilters(){
+  const topics=['all',...new Set(PROBLEMS.map(p=>p.topic))];
+  $('#prac-filters').innerHTML=topics.map(t=>`<button class="pill ${t===pFilter?'lvl':''}" style="cursor:pointer" onclick="pFilter='${t}';renderFilters();renderProblems()">${t}</button>`).join('');
+}
+function renderProblems(){
+  const list=PROBLEMS.filter(p=>pFilter==='all'||p.topic===pFilter);
+  $('#prob-list').innerHTML=list.map(p=>`
+    <div class="card prob" onclick="openProblem('${p.id}')">
+      <div class="row"><div><b style="font-family:var(--disp)">${esc(p.q)}</b></div>
+      <div class="row" style="flex-shrink:0"><span class="pill">${p.topic}</span><span class="pill ${p.diff}">${p.diff}</span>${progress.solved[p.id]?'<span class="pill" style="color:var(--fn);border-color:var(--fn)">\u2713 solved</span>':''}</div></div>
+    </div>`).join('');
+}
+let curProb=null,hintN=0;
+function openProblem(id){
+  curProb=PROBLEMS.find(p=>p.id===id);hintN=0;
+  $('#prob-body').innerHTML=`
+    <div class="qhead" style="margin-top:14px"><span class="cm">-- ${curProb.topic.toLowerCase()}</span></div>
+    <div class="row" style="margin-bottom:10px"><span class="pill ${curProb.diff}">${curProb.diff}</span>${progress.solved[id]?'<span class="pill" style="color:var(--fn)">\u2713 solved before</span>':''}</div>
+    <p style="font-size:16px;max-width:640px;margin-bottom:14px"><b>${esc(curProb.q)}</b></p>
+    <textarea class="editor" id="prob-editor" spellcheck="false" placeholder="-- write your query here"></textarea>
+    <div class="row" style="margin-top:10px">
+      <button class="btn primary" onclick="checkProblem()">Check answer</button>
+      <button class="btn" onclick="nextHint()">Hint <span id="hint-n">(0/${curProb.hints.length})</span></button>
+      <button class="btn ghost" onclick="revealSolution()">Show solution</button>
+    </div>
+    <div id="hints"></div>
+    <div id="prob-out"></div>
+    <div id="prob-sol"></div>`;
+  show('problem');
+}
+function nextHint(){
+  if(hintN>=curProb.hints.length)return;
+  hintN++;
+  $('#hint-n').textContent=`(${hintN}/${curProb.hints.length})`;
+  $('#hints').innerHTML=curProb.hints.slice(0,hintN).map((h,i)=>`<div class="hintbox"><b style="font-family:var(--mono);font-size:11px;color:var(--kw)">HINT ${i+1}</b><br>${esc(h)}</div>`).join('');
+}
+function checkProblem(){
+  const sql=$('#prob-editor').value.trim();
+  if(!sql){flashMsg('prob-out','Write a query first.','info');return;}
+  const g=gradeQuery(sql,curProb);
+  $('#prob-out').innerHTML=g.html;
+  if(g.ok){progress.solved[curProb.id]=true;saveProgress();renderProblems();renderDash();}
+}
+function revealSolution(){
+  resetDb();
+  $('#prob-sol').innerHTML=`<h3 style="font-family:var(--disp);font-size:15px;margin:18px 0 6px">Solution</h3>${codeBlock(curProb.sol)}${db?resultTable(runSQL(curProb.sol)):''}`;
+}
+/* ==================== BANK ==================== */
+function renderBank(){
+  $('#bank-body').innerHTML=BANK.map(g=>`
+    <div class="lvlhead" style="margin:18px 0 8px"><span style="color:var(--kw)">GROUP BY</span> <span style="color:var(--str)">'${g.cat}'</span></div>
+    ${g.items.map(([q,a])=>`<details class="qa"><summary>${esc(q)}</summary><div class="ans">${esc(a)}</div></details>`).join('')}`).join('');
+}
+
+/* ==================== FLASHCARDS ==================== */
+let fOrder=[],fIdx=0;
+function shuffleFlash(){
+  fOrder=FLASH.map((_,i)=>i);
+  // weak cards (more misses than hits) first, then shuffle within
+  fOrder.sort((a,b)=>{
+    const sa=progress.flash[a]||{hit:0,miss:0},sb=progress.flash[b]||{hit:0,miss:0};
+    return (sb.miss-sb.hit)-(sa.miss-sa.hit)||Math.random()-.5;
+  });
+  fIdx=0;
+}
+function renderFlash(){
+  if(!fOrder.length)shuffleFlash();
+  const i=fOrder[fIdx],c=FLASH[i];
+  $('#fcard').classList.remove('flip');
+  $('#f-tag').textContent=c[1];
+  $('#f-q').innerHTML=`<b>${esc(c[0])}</b>`;
+  $('#f-a').textContent=c[2];
+  const st=progress.flash[i]||{hit:0,miss:0};
+  $('#f-count').textContent=`Card ${fIdx+1} of ${FLASH.length} \u00b7 got it ${st.hit}\u00d7, shaky ${st.miss}\u00d7`;
+}
+function gradeFlash(ok){
+  const i=fOrder[fIdx];
+  const st=progress.flash[i]||(progress.flash[i]={hit:0,miss:0});
+  ok?st.hit++:st.miss++;saveProgress();
+  fIdx++;
+  if(fIdx>=fOrder.length)shuffleFlash();
+  renderFlash();renderDash();
+}
+$('#fcard').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('#fcard').classList.toggle('flip');}});
+
+/* ==================== MOCK INTERVIEW ==================== */
+let mock=null,mockTimer=null;
+function renderMockIntro(){
+  const past=progress.mocks.slice(-3).reverse();
+  $('#mock-body').innerHTML=`
+    <div class="card" style="max-width:560px">
+      <p style="margin-bottom:8px"><b style="font-family:var(--disp)">Format</b></p>
+      <p>Round 1 \u2014 ${MOCK_MCQ.length} concept questions, multiple choice.<br>Round 2 \u2014 ${MOCK_SQL.length} live queries, auto-checked against expected results.<br>15-minute clock. Unanswered = wrong, just like real life.</p>
+      <button class="btn primary" style="margin-top:14px" onclick="startMock()">Start mock interview</button>
+      ${past.length?`<p style="margin-top:14px;color:var(--muted);font-size:13px">Recent scores: ${past.map(m=>`<b style="color:var(--ink)">${m.score}/${m.total}</b> (${m.date})`).join(' \u00b7 ')}</p>`:''}
+    </div>`;
+}
+function startMock(){
+  mock={i:0,score:0,answers:[],end:Date.now()+15*60*1000,phase:'mcq'};
+  clearInterval(mockTimer);
+  mockTimer=setInterval(()=>{
+    const left=mock.end-Date.now();
+    const el=$('#mock-clock');
+    if(el)el.textContent=left>0?`${String(Math.floor(left/60000)).padStart(2,'0')}:${String(Math.floor(left%60000/1000)).padStart(2,'0')}`:'00:00';
+    if(left<=0)endMock();
+  },500);
+  renderMockQ();
+}
+function mockHeader(){
+  const n=MOCK_MCQ.length+MOCK_SQL.length;
+  return `<div class="row" style="justify-content:space-between;margin-bottom:12px">
+    <span class="pill lvl">Question ${mock.i+1} / ${n}</span><span class="timer" id="mock-clock">15:00</span></div>
+    <div class="bar" style="margin-bottom:18px"><i style="width:${mock.i/n*100}%"></i></div>`;
+}
+function renderMockQ(){
+  if(mock.i<MOCK_MCQ.length){
+    const q=MOCK_MCQ[mock.i];
+    $('#mock-body').innerHTML=mockHeader()+`
+      <div class="card" style="max-width:640px">
+        <p style="font-size:16px"><b>${esc(q.q)}</b></p>
+        ${q.c.map((c,i)=>`<button class="choice" id="ch${i}" onclick="mockPick(${i})">${esc(c)}</button>`).join('')}
+        <div id="mock-fb"></div>
+      </div>`;
+  }else if(mock.i<MOCK_MCQ.length+MOCK_SQL.length){
+    const q=MOCK_SQL[mock.i-MOCK_MCQ.length];
+    $('#mock-body').innerHTML=mockHeader()+`
+      <div style="max-width:760px">
+        <p style="font-size:16px;margin-bottom:12px"><b>${esc(q.q)}</b></p>
+        <textarea class="editor" id="mock-editor" spellcheck="false" placeholder="-- your query"></textarea>
+        <div class="row" style="margin-top:10px">
+          <button class="btn primary" onclick="mockCheckSQL()">Submit query</button>
+          <button class="btn" onclick="mockSkip()">Skip (0 pts)</button>
+        </div>
+        <div id="mock-fb"></div>
+      </div>`;
+  }else endMock();
+}
+function mockPick(i){
+  const q=MOCK_MCQ[mock.i];
+  document.querySelectorAll('.choice').forEach((b,bi)=>{
+    b.disabled=true;
+    if(bi===q.a)b.classList.add('right');
+    else if(bi===i)b.classList.add('wrong');
+  });
+  const ok=i===q.a;if(ok)mock.score++;
+  $('#mock-fb').innerHTML=`<div class="msg ${ok?'ok':'err'}" style="margin-top:12px">${ok?'\u2713 Correct.':'\u2717 The answer is: '+esc(q.c[q.a])}</div><button class="btn primary" style="margin-top:10px" onclick="mock.i++;renderMockQ()">Next \u2192</button>`;
+}
+function mockCheckSQL(){
+  const q=MOCK_SQL[mock.i-MOCK_MCQ.length];
+  const sql=$('#mock-editor').value.trim();
+  if(!sql)return;
+  const g=gradeQuery(sql,q);
+  if(g.ok)mock.score++;
+  $('#mock-fb').innerHTML=g.html+`<button class="btn primary" style="margin-top:10px" onclick="mock.i++;renderMockQ()">Next \u2192</button>`;
+  document.querySelectorAll('#mock-body .btn.primary')[0].disabled=true;
+}
+function mockSkip(){mock.i++;renderMockQ();}
+function endMock(){
+  clearInterval(mockTimer);
+  const total=MOCK_MCQ.length+MOCK_SQL.length;
+  const pct=Math.round(mock.score/total*100);
+  const verdict=pct>=85?'Interview-ready \u2014 keep your edge with the hard problems.':pct>=60?'Solid base \u2014 drill your weak topics on the dashboard, then rerun.':'Early days \u2014 work through the roadmap concepts, then come back.';
+  progress.mocks.push({score:mock.score,total,date:new Date().toISOString().slice(0,10)});saveProgress();
+  $('#mock-body').innerHTML=`
+    <div class="card" style="max-width:560px;text-align:center;padding:30px">
+      <div style="font-family:var(--mono);font-size:13px;color:var(--muted)">final score</div>
+      <div style="font-family:var(--disp);font-size:46px;font-weight:700;margin:6px 0">${mock.score} <span style="color:var(--muted);font-size:24px">/ ${total}</span></div>
+      <div class="bar" style="max-width:280px;margin:0 auto 14px"><i style="width:${pct}%"></i></div>
+      <p>${verdict}</p>
+      <button class="btn primary" style="margin-top:14px" onclick="renderMockIntro()">Run it again</button>
+    </div>`;
+  mock=null;renderDash();
+}
+
+/* ==================== DASHBOARD ==================== */
+function bar10(pct){const f=Math.round(pct/10);return '\u2588'.repeat(f)+'\u2591'.repeat(10-f);}
+function renderDash(){
+  const topics=[...new Set(PROBLEMS.map(p=>p.topic))];
+  const rows=topics.map(t=>{
+    const ps=PROBLEMS.filter(p=>p.topic===t);
+    const done=ps.filter(p=>progress.solved[p.id]).length;
+    return {t,done,n:ps.length,pct:Math.round(done/ps.length*100)};
+  });
+  const conceptsRead=Object.keys(progress.read).length;
+  const solved=Object.keys(progress.solved).length;
+  const weak=rows.filter(r=>r.pct<100).sort((a,b)=>a.pct-b.pct).slice(0,3);
+  const best=progress.mocks.length?Math.max(...progress.mocks.map(m=>Math.round(m.score/m.total*100))):null;
+  $('#dash-body').innerHTML=`
+    <div class="grid c2" style="margin-bottom:16px">
+      <div class="card"><div style="font-family:var(--mono);font-size:11px;color:var(--muted)">concepts read</div><div style="font-family:var(--disp);font-size:30px;font-weight:700">${conceptsRead} <span style="font-size:15px;color:var(--muted)">/ ${CONCEPTS.length}</span></div></div>
+      <div class="card"><div style="font-family:var(--mono);font-size:11px;color:var(--muted)">problems solved</div><div style="font-family:var(--disp);font-size:30px;font-weight:700">${solved} <span style="font-size:15px;color:var(--muted)">/ ${PROBLEMS.length}</span></div></div>
+      <div class="card"><div style="font-family:var(--mono);font-size:11px;color:var(--muted)">mock interviews</div><div style="font-family:var(--disp);font-size:30px;font-weight:700">${progress.mocks.length}${best!==null?` <span style="font-size:15px;color:var(--muted)">best ${best}%</span>`:''}</div></div>
+      <div class="card"><div style="font-family:var(--mono);font-size:11px;color:var(--muted)">drill next</div><div style="font-family:var(--disp);font-size:16px;font-weight:600;padding-top:6px">${weak.length?weak.map(w=>w.t).join(' \u00b7 '):'Nothing \u2014 all topics solved \u2713'}</div></div>
+    </div>
+    <div class="card">
+      <div style="font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:8px">SELECT topic, progress FROM practice GROUP BY topic;</div>
+      <div class="resultwrap"><table class="rt"><thead><tr><th>topic</th><th>progress</th><th>solved</th></tr></thead><tbody>
+      ${rows.map(r=>`<tr><td>${r.t}</td><td style="color:var(--kw)">${bar10(r.pct)} ${r.pct}%</td><td>${r.done}/${r.n}</td></tr>`).join('')}
+      </tbody></table></div>
+      <div class="row" style="margin-top:14px;justify-content:space-between">
+        <span style="color:var(--muted);font-size:12.5px">Progress is saved to this app\u2019s storage automatically.</span>
+        <button class="btn" onclick="if(confirm('Erase all saved progress?')){progress={solved:{},flash:{},read:{},mocks:[]};saveProgress();renderRoadmap();renderProblems();renderDash();}">Reset progress</button>
+      </div>
+    </div>`;
+}
+
+/* ==================== AI TUTOR ==================== */
+let chatHist=[];
+function chatBubble(role,text){
+  const d=document.createElement('div');
+  d.className='bubble '+(role==='user'?'user':'ai');
+  if(role==='ai'){
+    let h=esc(text);
+    h=h.replace(/```(?:sql)?\n?([\s\S]*?)```/g,(m,c)=>`<pre>${hi(c.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&quot;/g,'"'))}</pre>`);
+    h=h.replace(/`([^`]+)`/g,'<code>$1</code>');
+    d.innerHTML=h;
+  }else d.textContent=text;
+  $('#chat').appendChild(d);
+  $('#chat').scrollTop=$('#chat').scrollHeight;
+  return d;
+}
+async function sendChat(){
+  const inp=$('#chat-in');const text=inp.value.trim();
+  if(!text)return;
+  inp.value='';
+  chatBubble('user',text);
+  chatHist.push({role:'user',content:text});
+  const thinking=chatBubble('ai','\u2026');
+  const sys=`You are a friendly, concise SQL tutor inside an interview-prep app. The student is preparing for an entry-level data engineering interview. The app has a live SQLite playground with this schema:
+employees(id, name, department, salary, hire_date, manager_id) \u2014 manager_id references employees.id, NULL for top-level
+customers(customer_id, name, city)
+orders(order_id, customer_id, employee_id, amount, order_date)
+raw_signups(signup_id, email, plan, created_at) \u2014 contains duplicate emails on purpose
+${lastQuery?`The student's most recent playground query was:\n${lastQuery}\n${lastError?`It failed with: ${lastError}`:'It ran successfully.'}`:''}
+Explain errors plainly, point at the exact offending part, show the corrected query in a sql code block, and when natural, offer one similar practice question. Use SQLite syntax. Keep answers under ~200 words unless asked for more.`;
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:sys,messages:chatHist.slice(-12)})
+    });
+    const data=await r.json();
+    const reply=(data.content||[]).map(b=>b.type==='text'?b.text:'').join('\n').trim()||'(no response \u2014 try again)';
+    chatHist.push({role:'assistant',content:reply});
+    thinking.remove();chatBubble('ai',reply);
+  }catch(e){
+    thinking.remove();
+    chatBubble('ai','Couldn\u2019t reach the tutor service. Check your connection and try again.');
+  }
+}
+
+boot();
+</script>
+</body>
+</html>
