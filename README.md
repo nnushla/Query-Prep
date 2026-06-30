@@ -1,7 +1,3 @@
-# Query-Prep
-
-- Built by Claude Code
-
 # Query/Prep — SQL Interview Trainer
 
 An interactive, single-page web app for learning SQL and preparing for data analytics / data engineering interviews. It runs a **real SQLite database entirely in your browser** — every query you write actually executes, including joins, CTEs, and window functions.
