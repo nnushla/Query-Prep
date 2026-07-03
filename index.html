@@ -466,6 +466,7 @@ const CONCEPTS = [
  bad:'Full reload every run',good:'Watermark + incremental upsert',
  why:'Full reloads are simple but don\u2019t scale and hammer the source. Knowing when each is appropriate (small dims: full; big facts: incremental) reads as real experience.'}
 ];
+
 const PROBLEMS = [
 {id:'p1',topic:'Filtering',diff:'easy',q:'List the name and salary of every employee in Engineering.',
  hints:['You only need one table and one condition.','Filter rows with WHERE; text values go in single quotes.',"Pattern: SELECT name, salary FROM employees WHERE department = '...';"],
@@ -558,6 +559,7 @@ const MOCK_MCQ = [
 {q:'To filter on ROW_NUMBER() you must\u2026',c:['use HAVING','use WHERE directly','compute it in a CTE/subquery first','use ORDER BY'],a:2},
 {q:'The standard dedup pattern keeps rows where\u2026',c:['DISTINCT = 1','rn = 1 from ROW_NUMBER over the dup key','COUNT(*) > 1','rank is NULL'],a:1}
 ];
+
 const MOCK_SQL = [
 {q:'Round 2, task 1 \u2014 Revenue per customer city: city and SUM(amount) as revenue, highest first.',
  sol:'SELECT c.city, SUM(o.amount) AS revenue FROM orders o JOIN customers c ON o.customer_id = c.customer_id GROUP BY c.city ORDER BY revenue DESC;',ordered:true},
@@ -577,25 +579,39 @@ const SAMPLES = [
 ['Dedup raw_signups','WITH ranked AS (\n  SELECT *, ROW_NUMBER() OVER (PARTITION BY email ORDER BY created_at DESC) AS rn\n  FROM raw_signups\n)\nSELECT signup_id, email, plan, created_at FROM ranked WHERE rn = 1;'],
 ['Monthly revenue','SELECT strftime(\u0027%Y-%m\u0027, order_date) AS month, SUM(amount) AS revenue\nFROM orders\nGROUP BY month ORDER BY month;']
 ];
+
 /* ==================== ENGINE & STATE ==================== */
 let db=null, SQLLib=null;
 let progress={solved:{},flash:{},read:{},mocks:[]};
 const $=s=>document.querySelector(s);
 
-async function loadProgress(){
-  try{const r=await window.storage.get('sqlprep:progress');if(r&&r.value)progress=JSON.parse(r.value);}catch(e){}
+/* =====================================================
+   FIX 1: Replaced window.storage with localStorage
+   so progress actually saves in a real browser.
+===================================================== */
+function loadProgress(){
+  try{
+    const raw=localStorage.getItem('sqlprep:progress');
+    if(raw) progress=JSON.parse(raw);
+  }catch(e){}
 }
+
 let saveT=null;
 function saveProgress(){
   clearTimeout(saveT);
-  saveT=setTimeout(async()=>{try{await window.storage.set('sqlprep:progress',JSON.stringify(progress));}catch(e){console.error('save failed',e);}},400);
+  saveT=setTimeout(()=>{
+    try{ localStorage.setItem('sqlprep:progress',JSON.stringify(progress)); }
+    catch(e){ console.error('save failed',e); }
+  },400);
 }
 
 function resetDb(){ if(SQLLib){ db=new SQLLib.Database(); db.run(SEED); } }
 
 async function boot(){
-  await loadProgress();
+  loadProgress(); /* no longer async — localStorage is synchronous */
   renderRoadmap();renderSchema();renderSamples();renderFilters();renderProblems();renderBank();renderFlash();renderMockIntro();renderDash();
+  /* FIX 5: call initTutor so the chat isn't blank on load */
+  initTutor();
   try{
     SQLLib=await initSqlJs({locateFile:f=>`https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${f}`});
     resetDb();
@@ -784,6 +800,7 @@ function revealSolution(){
   resetDb();
   $('#prob-sol').innerHTML=`<h3 style="font-family:var(--disp);font-size:15px;margin:18px 0 6px">Solution</h3>${codeBlock(curProb.sol)}${db?resultTable(runSQL(curProb.sol)):''}`;
 }
+
 /* ==================== BANK ==================== */
 function renderBank(){
   $('#bank-body').innerHTML=BANK.map(g=>`
@@ -795,7 +812,6 @@ function renderBank(){
 let fOrder=[],fIdx=0;
 function shuffleFlash(){
   fOrder=FLASH.map((_,i)=>i);
-  // weak cards (more misses than hits) first, then shuffle within
   fOrder.sort((a,b)=>{
     const sa=progress.flash[a]||{hit:0,miss:0},sb=progress.flash[b]||{hit:0,miss:0};
     return (sb.miss-sb.hit)-(sa.miss-sa.hit)||Math.random()-.5;
@@ -937,7 +953,7 @@ function renderDash(){
       ${rows.map(r=>`<tr><td>${r.t}</td><td style="color:var(--kw)">${bar10(r.pct)} ${r.pct}%</td><td>${r.done}/${r.n}</td></tr>`).join('')}
       </tbody></table></div>
       <div class="row" style="margin-top:14px;justify-content:space-between">
-        <span style="color:var(--muted);font-size:12.5px">Progress is saved to this app\u2019s storage automatically.</span>
+        <span style="color:var(--muted);font-size:12.5px">Progress is saved to your browser automatically.</span>
         <button class="btn" onclick="if(confirm('Erase all saved progress?')){progress={solved:{},flash:{},read:{},mocks:[]};saveProgress();renderRoadmap();renderProblems();renderDash();}">Reset progress</button>
       </div>
     </div>`;
@@ -945,19 +961,31 @@ function renderDash(){
 
 /* ==================== AI TUTOR ==================== */
 let chatHist=[];
+
+/* FIX 3: greeting so the chat isn't blank on load */
+function initTutor(){
+  chatBubble('ai','Hi! I\u2019m your SQL tutor. Ask me why a query isn\u2019t working, paste an error, or say \u201cgive me a practice question\u201d and I\u2019ll generate one using the playground schema.');
+}
+
 function chatBubble(role,text){
   const d=document.createElement('div');
   d.className='bubble '+(role==='user'?'user':'ai');
   if(role==='ai'){
     let h=esc(text);
+    /* render ```sql ... ``` blocks with syntax highlighting */
     h=h.replace(/```(?:sql)?\n?([\s\S]*?)```/g,(m,c)=>`<pre>${hi(c.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&quot;/g,'"'))}</pre>`);
+    /* render inline `code` */
     h=h.replace(/`([^`]+)`/g,'<code>$1</code>');
+    /* FIX 4: render **bold** and numbered lists from AI responses */
+    h=h.replace(/\*\*(.*?)\*\*/g,'<b>$1</b>');
+    h=h.replace(/^\d+\.\s+/gm,'<br>\u2022 ');
     d.innerHTML=h;
   }else d.textContent=text;
   $('#chat').appendChild(d);
   $('#chat').scrollTop=$('#chat').scrollHeight;
   return d;
 }
+
 async function sendChat(){
   const inp=$('#chat-in');const text=inp.value.trim();
   if(!text)return;
@@ -973,9 +1001,10 @@ raw_signups(signup_id, email, plan, created_at) \u2014 contains duplicate emails
 ${lastQuery?`The student's most recent playground query was:\n${lastQuery}\n${lastError?`It failed with: ${lastError}`:'It ran successfully.'}`:''}
 Explain errors plainly, point at the exact offending part, show the corrected query in a sql code block, and when natural, offer one similar practice question. Use SQLite syntax. Keep answers under ~200 words unless asked for more.`;
   try{
+    /* FIX 2: corrected model name */
     const r=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:sys,messages:chatHist.slice(-12)})
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,system:sys,messages:chatHist.slice(-12)})
     });
     const data=await r.json();
     const reply=(data.content||[]).map(b=>b.type==='text'?b.text:'').join('\n').trim()||'(no response \u2014 try again)';
