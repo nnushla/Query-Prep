@@ -1002,8 +1002,11 @@ ${lastQuery?`The student's most recent playground query was:\n${lastQuery}\n${la
 Explain errors plainly, point at the exact offending part, show the corrected query in a sql code block, and when natural, offer one similar practice question. Use SQLite syntax. Keep answers under ~200 words unless asked for more.`;
   try{
     /* FIX 2: corrected model name */
-    const r=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',headers:{'Content-Type':'application/json'},
+  const r=await fetch('https://api.anthropic.com/v1/messages',{
+  method:'POST',headers:{
+    'Content-Type':'application/json',
+    'anthropic-dangerous-direct-browser-access':'true'
+  },
       body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,system:sys,messages:chatHist.slice(-12)})
     });
     const data=await r.json();
